@@ -11,3 +11,4 @@ gTTS
 openpyxl
 pdfplumber
 pdfkit
+markdown
