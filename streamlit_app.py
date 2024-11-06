@@ -21,6 +21,7 @@ import speech_recognition as sr
 import requests
 from io import BytesIO
 from fpdf import FPDF
+import pocketsphinx  # Alternative to speech_recognition
 
 # Utility Functions
 def generate_random_password(length=12):
@@ -222,10 +223,13 @@ audio_file = st.file_uploader("Upload Audio File for Speech Recognition", type=[
 if audio_file:
     if st.button("Convert Audio to Text"):
         try:
-            text = audio_to_text(audio_file)
-            if text:
-                st.write("Converted Text:")
-                st.write(text)
+            recognizer = sr.Recognizer()
+            audio_data = sr.AudioFile(audio_file)
+            with audio_data as source:
+                audio = recognizer.record(source)
+            text = recognizer.recognize_google(audio)
+            st.write("Converted Text:")
+            st.write(text)
         except Exception as e:
             st.error(f"Error converting audio to text: {e}")
 
@@ -237,24 +241,4 @@ if st.button("Convert Markdown to PDF"):
         st.download_button("Download PDF", pdf_output, file_name="converted_document.pdf")
     except Exception as e:
         st.error(f"Error converting Markdown to PDF: {e}")
-
-# File Metadata Viewer
-uploaded_file = st.file_uploader("Upload File to View Metadata", type=["jpg", "jpeg", "mp4", "mp3"])
-if uploaded_file:
-    try:
-        if uploaded_file.type.startswith("image"):
-            img = Image.open(uploaded_file)
-            exif_data = img._getexif()
-            if exif_data:
-                st.write("EXIF Data:")
-                st.write(exif_data)
-            else:
-                st.write("No EXIF data available.")
-        elif uploaded_file.type.startswith("audio") or uploaded_file.type.startswith("video"):
-            file_info = uploaded_file.getvalue()
-            st.write("File Metadata:")
-            st.write(f"Size: {len(file_info)} bytes")
-            st.write(f"Type: {uploaded_file.type}")
-    except Exception as e:
-        st.error(f"Error extracting metadata: {e}")
 
