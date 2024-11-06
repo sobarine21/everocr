@@ -9,3 +9,4 @@ numpy
 pydub
 gTTS
 openpyxl
+pdfplumber
