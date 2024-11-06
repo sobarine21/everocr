@@ -1,1 +1,10 @@
 streamlit
+pillow
+moviepy
+python-docx
+pandas
+qrcode
+matplotlib
+numpy
+pydub
+gTTS
