@@ -12,3 +12,4 @@ openpyxl
 pdfplumber
 pdfkit
 markdown
+speech_recognition
