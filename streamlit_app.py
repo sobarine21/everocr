@@ -12,6 +12,7 @@ import random
 import string
 from gtts import gTTS
 import os
+import tempfile
 
 # Utility Functions
 
@@ -72,8 +73,15 @@ st.header("Media Processing Features")
 # Video Resizer
 uploaded_video = st.file_uploader("Upload Video File for Resizing", type=["mp4", "avi"])
 if uploaded_video:
-    video_clip = VideoFileClip(uploaded_video.name)
+    # Save the uploaded video file to a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+        temp_video.write(uploaded_video.read())
+        temp_video_path = temp_video.name
+    
+    # Load the video using MoviePy
+    video_clip = VideoFileClip(temp_video_path)
     scale_factor = st.slider("Select Resize Scale Factor", min_value=0.1, max_value=1.0, value=0.5)
+    
     if st.button("Resize Video"):
         resized_clip = video_clip.fx(video_resize, scale_factor)
         resized_video_buffer = io.BytesIO()
