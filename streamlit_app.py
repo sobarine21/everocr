@@ -104,10 +104,9 @@ def markdown_to_pdf(md_content):
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     pdf.multi_cell(0, 10, md_content)
-    pdf_output = io.BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
-    return pdf_output
+    pdf_output = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(pdf_output.name)  # Write to a file
+    return pdf_output.name  # Return the file path
 
 # Streamlit App Layout
 st.title("Enhanced File Type Converters & Media Processing")
@@ -237,8 +236,8 @@ if audio_file:
 md_content_for_pdf = st.text_area("Enter Markdown Content for PDF Conversion")
 if st.button("Convert Markdown to PDF"):
     try:
-        pdf_output = markdown_to_pdf(md_content_for_pdf)
-        st.download_button("Download PDF", pdf_output, file_name="converted_document.pdf")
+        pdf_output_path = markdown_to_pdf(md_content_for_pdf)
+        with open(pdf_output_path, "rb") as pdf_file:
+            st.download_button("Download PDF", pdf_file, file_name="converted_document.pdf")
     except Exception as e:
         st.error(f"Error converting Markdown to PDF: {e}")
-
