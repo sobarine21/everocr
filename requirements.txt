@@ -12,4 +12,8 @@ openpyxl
 pdfplumber
 pdfkit
 markdown
-speech_recognition
+speechrecognition
+cryptography
+requests
+fpdf
+pocketsphinx
