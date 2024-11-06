@@ -17,10 +17,12 @@ import zipfile
 import base64
 import hashlib
 from cryptography.fernet import Fernet
-import io
+import speech_recognition as sr
+import requests
+from io import BytesIO
+from fpdf import FPDF
 
 # Utility Functions
-
 def generate_random_password(length=12):
     characters = string.ascii_letters + string.digits + string.punctuation
     return ''.join(random.choice(characters) for _ in range(length))
@@ -47,6 +49,64 @@ def decrypt_file(file_data, password):
     cipher_suite = Fernet(base64.urlsafe_b64encode(key[:32]))
     decrypted_data = cipher_suite.decrypt(file_data)
     return decrypted_data
+
+# PDF to Image Conversion
+def pdf_to_image(pdf_file):
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            image_list = []
+            for page_num in range(len(pdf.pages)):
+                page = pdf.pages[page_num]
+                image = page.to_image()
+                image_buffer = io.BytesIO()
+                image.save(image_buffer, format="PNG")
+                image_buffer.seek(0)
+                image_list.append(image_buffer)
+            return image_list
+    except Exception as e:
+        st.error(f"Error converting PDF to image: {e}")
+
+# Speech-to-Text (Audio File to Text)
+def audio_to_text(audio_file):
+    recognizer = sr.Recognizer()
+    audio_data = sr.AudioFile(audio_file)
+    with audio_data as source:
+        audio = recognizer.record(source)
+    try:
+        text = recognizer.recognize_google(audio)
+        return text
+    except Exception as e:
+        st.error(f"Error recognizing speech: {e}")
+        return None
+
+# Currency Converter
+def convert_currency(amount, from_currency, to_currency):
+    api_url = f"https://api.exchangerate-api.com/v4/latest/{from_currency}"
+    response = requests.get(api_url)
+    data = response.json()
+    rate = data['rates'].get(to_currency)
+    if rate:
+        return amount * rate
+    else:
+        st.error(f"Error fetching exchange rates for {to_currency}")
+        return None
+
+# Image Slideshow
+def create_image_slideshow(images):
+    if len(images) > 0:
+        for img in images:
+            st.image(img, use_column_width=True)
+
+# Markdown to PDF Conversion
+def markdown_to_pdf(md_content):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, md_content)
+    pdf_output = io.BytesIO()
+    pdf.output(pdf_output)
+    pdf_output.seek(0)
+    return pdf_output
 
 # Streamlit App Layout
 st.title("Enhanced File Type Converters & Media Processing")
@@ -88,7 +148,6 @@ if uploaded_image:
         format_choice = st.selectbox("Convert to Format", options=["PNG", "JPEG"])
         output_buffer = io.BytesIO()
         
-        # Using the LANCZOS resampling method instead of ANTIALIAS
         if st.button("Convert Image Format"):
             img = img.resize((img.width // 2, img.height // 2), Image.Resampling.LANCZOS)  # Resize image
             img.save(output_buffer, format=format_choice)
@@ -140,114 +199,62 @@ if st.button("Generate Random Password"):
     except Exception as e:
         st.error(f"Error generating password: {e}")
 
-# Data Visualization
-data_file = st.file_uploader("Upload CSV for Visualization", type="csv")
-if data_file:
+# Currency Converter
+amount = st.number_input("Enter Amount for Currency Conversion", min_value=0.0)
+from_currency = st.selectbox("Select From Currency", ["USD", "EUR", "GBP", "INR", "JPY"])
+to_currency = st.selectbox("Select To Currency", ["USD", "EUR", "GBP", "INR", "JPY"])
+
+if st.button("Convert Currency"):
     try:
-        df = pd.read_csv(data_file)
-        visualize_data(df)
+        converted_amount = convert_currency(amount, from_currency, to_currency)
+        if converted_amount:
+            st.write(f"{amount} {from_currency} = {converted_amount:.2f} {to_currency}")
     except Exception as e:
-        st.error(f"Error processing CSV file: {e}")
+        st.error(f"Error converting currency: {e}")
 
-# Speech Conversion (Text-to-Speech)
-text_to_speech_input = st.text_area("Enter Text for Text-to-Speech Conversion")
-if st.button("Convert Text to Speech"):
-    try:
-        tts = gTTS(text=text_to_speech_input, lang='en')
-        audio_buffer = io.BytesIO()
-        tts.save(audio_buffer)
-        audio_buffer.seek(0)
-        st.audio(audio_buffer, format="audio/mp3")
-    except Exception as e:
-        st.error(f"Error converting text to speech: {e}")
+# Image Slideshow
+image_files = st.file_uploader("Upload Images for Slideshow", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+if image_files:
+    create_image_slideshow([Image.open(img) for img in image_files])
 
-# New Features
-
-# Text File Upload and Display
-text_file = st.file_uploader("Upload Text File", type="txt")
-if text_file:
-    try:
-        content = text_file.read().decode("utf-8")
-        st.text_area("File Content", content, height=200)
-    except Exception as e:
-        st.error(f"Error displaying text file: {e}")
-
-# Image Effects
-if uploaded_image:
-    effect = st.selectbox("Apply Image Effect", ["None", "Grayscale", "Blur", "Sharpen"])
-    if st.button("Apply Effect"):
+# Audio File to Text (Speech Recognition)
+audio_file = st.file_uploader("Upload Audio File for Speech Recognition", type=["wav", "mp3", "flac"])
+if audio_file:
+    if st.button("Convert Audio to Text"):
         try:
-            if effect == "Grayscale":
-                img = img.convert("L")
-            elif effect == "Blur":
-                img = img.filter(ImageFilter.BLUR)
-            elif effect == "Sharpen":
-                img = img.filter(ImageFilter.SHARPEN)
-            st.image(img, caption=f"Image with {effect} effect", use_column_width=True)
+            text = audio_to_text(audio_file)
+            if text:
+                st.write("Converted Text:")
+                st.write(text)
         except Exception as e:
-            st.error(f"Error applying image effect: {e}")
+            st.error(f"Error converting audio to text: {e}")
 
-# File Compression
-uploaded_file = st.file_uploader("Upload File for Compression (Text or Image)", type=["txt", "jpg", "jpeg", "png"])
+# Markdown to PDF Conversion
+md_content_for_pdf = st.text_area("Enter Markdown Content for PDF Conversion")
+if st.button("Convert Markdown to PDF"):
+    try:
+        pdf_output = markdown_to_pdf(md_content_for_pdf)
+        st.download_button("Download PDF", pdf_output, file_name="converted_document.pdf")
+    except Exception as e:
+        st.error(f"Error converting Markdown to PDF: {e}")
+
+# File Metadata Viewer
+uploaded_file = st.file_uploader("Upload File to View Metadata", type=["jpg", "jpeg", "mp4", "mp3"])
 if uploaded_file:
-    if st.button("Compress File"):
-        try:
-            compressed_file_buffer = io.BytesIO()
-            with zipfile.ZipFile(compressed_file_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zipf:
-                zipf.writestr(uploaded_file.name, uploaded_file.getvalue())
-            compressed_file_buffer.seek(0)
-            st.download_button("Download Compressed File", compressed_file_buffer, file_name="compressed_file.zip")
-        except Exception as e:
-            st.error(f"Error compressing file: {e}")
-
-# Video to Audio Conversion
-uploaded_video = st.file_uploader("Upload Video for Audio Extraction", type=["mp4", "avi"])
-if uploaded_video:
-    if st.button("Extract Audio"):
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-                temp_video.write(uploaded_video.read())
-                temp_video_path = temp_video.name
-            
-            video_clip = VideoFileClip(temp_video_path)
-            audio_clip = video_clip.audio
-            audio_buffer = io.BytesIO()
-            audio_clip.write_audiofile(audio_buffer)
-            audio_buffer.seek(0)
-            st.audio(audio_buffer, format="audio/mp3")
-        except Exception as e:
-            st.error(f"Error extracting audio: {e}")
-
-# Palindrome Checker
-text = st.text_input("Enter text to check if it's a Palindrome")
-if st.button("Check Palindrome"):
     try:
-        if text == text[::-1]:
-            st.success("This is a palindrome!")
-        else:
-            st.error("This is not a palindrome.")
+        if uploaded_file.type.startswith("image"):
+            img = Image.open(uploaded_file)
+            exif_data = img._getexif()
+            if exif_data:
+                st.write("EXIF Data:")
+                st.write(exif_data)
+            else:
+                st.write("No EXIF data available.")
+        elif uploaded_file.type.startswith("audio") or uploaded_file.type.startswith("video"):
+            file_info = uploaded_file.getvalue()
+            st.write("File Metadata:")
+            st.write(f"Size: {len(file_info)} bytes")
+            st.write(f"Type: {uploaded_file.type}")
     except Exception as e:
-        st.error(f"Error checking palindrome: {e}")
+        st.error(f"Error extracting metadata: {e}")
 
-# File Encryption/Decryption
-uploaded_file = st.file_uploader("Upload File for Encryption/Decryption", type=["txt", "jpg", "png"])
-if uploaded_file:
-    password = st.text_input("Enter Password for Encryption/Decryption", type="password")
-    if st.button("Encrypt File"):
-        try:
-            encrypted_data = encrypt_file(uploaded_file.read(), password)
-            st.download_button("Download Encrypted File", encrypted_data, file_name="encrypted_file")
-        except Exception as e:
-            st.error(f"Error encrypting file: {e}")
-    if st.button("Decrypt File"):
-        try:
-            decrypted_data = decrypt_file(uploaded_file.read(), password)
-            st.download_button("Download Decrypted File", decrypted_data, file_name="decrypted_file")
-        except Exception as e:
-            st.error(f"Error decrypting file: {e}")
-
-# Clean up temporary files
-temp_files = ["converted_html.pdf", "resized_video.mp4"]
-for temp_file in temp_files:
-    if os.path.exists(temp_file):
-        os.remove(temp_file)
