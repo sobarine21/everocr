@@ -10,3 +10,4 @@ pydub
 gTTS
 openpyxl
 pdfplumber
+pdfkit
