@@ -149,7 +149,7 @@ if uploaded_image:
         output_buffer = io.BytesIO()
         
         if st.button("Convert Image Format"):
-            img = img.resize((img.width // 2, img.height // 2), Image.Resampling.LANCZOS)  # Resize image
+            img = img.resize((img.width // 2, img.height // 2), Image.LANCZOS)  # Resize image
             img.save(output_buffer, format=format_choice)
             output_buffer.seek(0)
             st.image(output_buffer, caption=f"Converted Image in {format_choice} format", use_column_width=True)
@@ -216,21 +216,6 @@ if st.button("Convert Currency"):
 image_files = st.file_uploader("Upload Images for Slideshow", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 if image_files:
     create_image_slideshow([Image.open(img) for img in image_files])
-
-# Audio File to Text (Speech Recognition)
-audio_file = st.file_uploader("Upload Audio File for Speech Recognition", type=["wav", "mp3", "flac"])
-if audio_file:
-    if st.button("Convert Audio to Text"):
-        try:
-            recognizer = sr.Recognizer()
-            audio_data = sr.AudioFile(audio_file)
-            with audio_data as source:
-                audio = recognizer.record(source)
-            text = recognizer.recognize_google(audio)
-            st.write("Converted Text:")
-            st.write(text)
-        except Exception as e:
-            st.error(f"Error converting audio to text: {e}")
 
 # Markdown to PDF Conversion
 md_content_for_pdf = st.text_area("Enter Markdown Content for PDF Conversion")
